@@ -1,32 +1,56 @@
-from .const import oauth2Url, gatewayUrl, clientPortalUrl, GRANT_TYPE, CLIENT_ASSERTION_TYPE, SCOPE
-from .util import formatted_HTTPrequest, compute_client_assertion
+from .const import oauth2Url, gatewayUrl, clientPortalUrl, GRANT_TYPE, CLIENT_ASSERTION_TYPE, SCOPE, audience
+from .util import formatted_HTTPrequest, IP, make_jws
 
+import math
 import logging
+import time
 
 from cryptography.hazmat.primitives import serialization
 import requests
 
 
 class IBKROAuthFlow:
-    def __init__(self, client_id, client_key_id, credential, private_key_file):
+    def __init__(self, client_id: str, client_key_id: str, credential: str, private_key_file: str):
         self.client_id = client_id
         self.client_key_id = client_key_id
         self.credential = credential
 
         logging.info("Load private key.")
-
         with open(private_key_file, "r") as file:
-            private_key = file.read().encode()
-
-        self.private_key = serialization.load_pem_private_key(
-            private_key,
-            password=None,
-        )
+            self.private_key = serialization.load_pem_private_key(
+                file.read().encode(),
+                password=None,
+            )
 
         self.access_token = None
         self.bearer_token = None
 
-    def get_access_token(self) -> str:
+    def _compute_client_assertion(self, url) -> str:
+        now = math.floor(time.time())
+        header = {"alg": "RS256", "typ": "JWT", "kid": f"{self.client_key_id}"}
+
+        if url == f"{oauth2Url}/api/v1/token":
+            claims = {
+                "iss": f"{self.client_id}",
+                "sub": f"{self.client_id}",
+                "aud": f"{audience}",
+                "exp": now + 20,
+                "iat": now - 10,
+            }
+
+        elif url == f"{gatewayUrl}/api/v1/sso-sessions":
+            claims = {
+                "ip": IP,
+                #'service': "AM.LOGIN",
+                "credential": f"{self.credential}",
+                "iss": f"{self.client_id}",
+                "exp": now + 86400,
+                "iat": now,
+            }
+
+        return make_jws(header, claims, self.private_key)
+
+    def get_access_token(self) -> None:
         """
         Obtain an access token. This is the first step in the authentication
         flow.
@@ -38,9 +62,7 @@ class IBKROAuthFlow:
 
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-        client_assertion = compute_client_assertion(
-            self.credential, url, self.client_id, self.client_key_id, self.private_key
-        )
+        client_assertion = self._compute_client_assertion(url)
 
         form_data = {
             "grant_type": GRANT_TYPE,
@@ -54,7 +76,7 @@ class IBKROAuthFlow:
 
         self.access_token = token_request.json()["access_token"]
 
-    def get_bearer_token(self):
+    def get_bearer_token(self) -> None:
         url = f"{gatewayUrl}/api/v1/sso-sessions"
 
         headers = {
@@ -62,9 +84,7 @@ class IBKROAuthFlow:
             "Content-Type": "application/jwt",
         }
 
-        signed_request = compute_client_assertion(
-            self.credential, url, self.client_id, self.client_key_id, self.private_key
-        )
+        signed_request = self._compute_client_assertion(url)
         bearer_request = requests.post(url=url, headers=headers, data=signed_request)
         print(formatted_HTTPrequest(bearer_request))
 
@@ -72,7 +92,7 @@ class IBKROAuthFlow:
             self.bearer_token = bearer_request.json()["access_token"]
         return
 
-    def ssodh_init(self):
+    def ssodh_init(self) -> None:
         """
         Initialise a brokerage session.
         """
@@ -84,7 +104,7 @@ class IBKROAuthFlow:
         init_request = requests.post(url=url, headers=headers, json=json_data)
         print(formatted_HTTPrequest(init_request))
 
-    def validate_sso(self):
+    def validate_sso(self) -> None:
         headers = {"Authorization": "Bearer " + self.bearer_token}
         headers["User-Agent"] = "python/3.11"
 
@@ -94,7 +114,7 @@ class IBKROAuthFlow:
         )  # Prepare and send request to /sso/validate endpoint, print request and response.
         print(formatted_HTTPrequest(vsso_request))
 
-    def tickle(self):
+    def tickle(self) -> None:
         headers = {"Authorization": "Bearer " + self.bearer_token}
         headers["User-Agent"] = "python/3.11"
 
@@ -105,7 +125,7 @@ class IBKROAuthFlow:
         print(formatted_HTTPrequest(tickle_request))
         return tickle_request.json()["session"]
 
-    def logout(self):
+    def logout(self) -> None:
         headers = {"Authorization": "Bearer " + self.bearer_token}
         headers["User-Agent"] = "python/3.11"
 

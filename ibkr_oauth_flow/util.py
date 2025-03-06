@@ -1,8 +1,7 @@
 import json
 import pprint
-import jwt
 import time
-import math
+import jwt
 
 from requests import Response
 
@@ -47,30 +46,3 @@ def make_jws(header, claims, clientPrivateKey):
     claims["iat"] = int(time.time())
 
     return jwt.encode(claims, clientPrivateKey, algorithm="RS256", headers=header)
-
-
-def compute_client_assertion(credential, url, clientId, clientKeyId, clientPrivateKey):
-    now = math.floor(time.time())
-    header = {"alg": "RS256", "typ": "JWT", "kid": f"{clientKeyId}"}
-
-    if url == f"{oauth2Url}/api/v1/token":
-        claims = {
-            "iss": f"{clientId}",
-            "sub": f"{clientId}",
-            "aud": f"{audience}",
-            "exp": now + 20,
-            "iat": now - 10,
-        }
-
-    elif url == f"{gatewayUrl}/api/v1/sso-sessions":
-        claims = {
-            "ip": IP,
-            #'service': "AM.LOGIN",
-            "credential": f"{credential}",
-            "iss": f"{clientId}",
-            "exp": now + 86400,
-            "iat": now,
-        }
-
-    assertion = make_jws(header, claims, clientPrivateKey)
-    return assertion
