@@ -15,7 +15,7 @@ class IBKROAuthFlow:
         self.client_key_id = client_key_id
         self.credential = credential
 
-        logging.info("Load private key.")
+        logging.info(f"Load private key from {private_key_file}.")
         with open(private_key_file, "r") as file:
             self.private_key = serialization.load_pem_private_key(
                 file.read().encode(),
