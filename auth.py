@@ -20,13 +20,13 @@ with open("config.yaml", "r") as file:
 if __name__ == "__main__":
     auth = ibkr_oauth_flow.IBKROAuthFlow(CLIENT_ID, CLIENT_KEY_ID, CREDENTIAL, PRIVATE_KEY_FILE)
 
-    access_token = auth.get_access_token()
-    bearer_token = auth.get_bearer_token(access_token)
+    auth.get_access_token()
+    auth.get_bearer_token()
 
-    auth.ssodh_init(bearer_token)
-    auth.validate_sso(bearer_token)
+    auth.ssodh_init()
+    auth.validate_sso()
 
     # This will keep session alive.
-    auth.tickle(bearer_token)
+    auth.tickle()
 
-    auth.logout(bearer_token)
+    auth.logout()
