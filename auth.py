@@ -29,5 +29,6 @@ if __name__ == "__main__":
     bearer_token = ibkr_oauth_flow.getBearerToken(access_token, credential, clientId, clientKeyId, clientPrivateKey)
     ibkr_oauth_flow.ssodh_init(bearer_token)
     ibkr_oauth_flow.validate_sso(bearer_token)
+    # This will keep session alive.
     session_token = ibkr_oauth_flow.tickle(bearer_token)
     ibkr_oauth_flow.logoutSession(bearer_token)

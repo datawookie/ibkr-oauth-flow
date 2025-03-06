@@ -1,5 +1,12 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
 .venv
-*.pyc
-__pycache__
 privatekey.pem
 config.yaml
