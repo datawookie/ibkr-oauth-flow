@@ -48,6 +48,9 @@ class IBKROAuthFlow:
                 "iat": now,
             }
 
+        logging.debug(f"Header: {header}.")
+        logging.debug(f"Claims: {claims}.")
+
         return make_jws(header, claims, self.private_key)
 
     def get_access_token(self) -> None:

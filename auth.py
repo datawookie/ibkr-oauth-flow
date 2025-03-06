@@ -5,7 +5,7 @@ import yaml
 import ibkr_oauth_flow
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(asctime)s [%(levelname)7s] %(message)s",
 )
 
