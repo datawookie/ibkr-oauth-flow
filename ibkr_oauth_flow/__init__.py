@@ -1,10 +1,4 @@
-from .access_token import getAccessToken as getAccessToken
-from .bearer_token import getBearerToken as getBearerToken
-from .sso import ssodh_init as ssodh_init, validate_sso as validate_sso
-from .tickle import tickle as tickle
-from .logout import logoutSession as logoutSession
-
-from .const import oauth2Url, GRANT_TYPE, CLIENT_ASSERTION_TYPE, SCOPE
+from .const import oauth2Url, gatewayUrl, clientPortalUrl, GRANT_TYPE, CLIENT_ASSERTION_TYPE, SCOPE
 from .util import formatted_HTTPrequest, compute_client_assertion
 
 import logging
@@ -56,3 +50,62 @@ class IBKROAuthFlow:
         print(formatted_HTTPrequest(token_request))
 
         return token_request.json()["access_token"]
+
+    def get_bearer_token(self, access_token):
+        url = f"{gatewayUrl}/api/v1/sso-sessions"
+
+        headers = {
+            "Authorization": "Bearer " + access_token,
+            "Content-Type": "application/jwt",
+        }
+
+        signed_request = compute_client_assertion(
+            self.credential, url, self.client_id, self.client_key_id, self.private_key
+        )
+        bearer_request = requests.post(url=url, headers=headers, data=signed_request)
+        print(formatted_HTTPrequest(bearer_request))
+
+        if bearer_request.status_code == 200:
+            return bearer_request.json()["access_token"]
+        return
+
+    def ssodh_init(self, bearer_token):
+        """
+        Initialise a brokerage session.
+        """
+        headers = {"Authorization": "Bearer " + bearer_token}
+        headers["User-Agent"] = "python/3.11"
+
+        url = f"{clientPortalUrl}/v1/api/iserver/auth/ssodh/init"
+        json_data = {"publish": True, "compete": True}
+        init_request = requests.post(url=url, headers=headers, json=json_data)
+        print(formatted_HTTPrequest(init_request))
+
+    def validate_sso(self, bearer_token):
+        headers = {"Authorization": "Bearer " + bearer_token}
+        headers["User-Agent"] = "python/3.11"
+
+        url = f"{clientPortalUrl}/v1/api/sso/validate"  # Validates the current session for the user
+        vsso_request = requests.get(
+            url=url, headers=headers
+        )  # Prepare and send request to /sso/validate endpoint, print request and response.
+        print(formatted_HTTPrequest(vsso_request))
+
+    def tickle(self, bearer_token):
+        headers = {"Authorization": "Bearer " + bearer_token}
+        headers["User-Agent"] = "python/3.11"
+
+        url = f"{clientPortalUrl}/v1/api/tickle"  # Tickle endpoint, used to ping the server and/or being the process of opening a websocket connection
+        tickle_request = requests.get(
+            url=url, headers=headers
+        )  # Prepare and send request to /tickle endpoint, print request and response.
+        print(formatted_HTTPrequest(tickle_request))
+        return tickle_request.json()["session"]
+
+    def logout(self, bearer_token):
+        headers = {"Authorization": "Bearer " + bearer_token}
+        headers["User-Agent"] = "python/3.11"
+
+        url = f"{clientPortalUrl}/v1/api/logout"
+        logout_request = requests.post(url=url, headers=headers)
+        print(formatted_HTTPrequest(logout_request))
