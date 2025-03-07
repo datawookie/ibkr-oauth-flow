@@ -9,7 +9,7 @@ Documentation for the IBKR Web API is [here](https://www.interactivebrokers.com/
 
     ```yaml
     client_id: ""
-    client_key_d: ""
+    client_key_id: ""
     credential: ""
     private_key_file: ""
     ```
