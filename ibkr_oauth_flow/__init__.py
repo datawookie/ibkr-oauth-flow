@@ -1,12 +1,13 @@
-from .const import oauth2Url, gatewayUrl, clientPortalUrl, GRANT_TYPE, CLIENT_ASSERTION_TYPE, SCOPE, audience
-from .util import log_response, IP, make_jws
-
+import json
 import math
 import logging
 import time
 
 from cryptography.hazmat.primitives import serialization
 import requests
+
+from .const import oauth2Url, gatewayUrl, clientPortalUrl, GRANT_TYPE, CLIENT_ASSERTION_TYPE, SCOPE, audience
+from .util import log_response, IP, make_jws
 
 
 class IBKROAuthFlow:
@@ -119,6 +120,8 @@ class IBKROAuthFlow:
         response = requests.post(url=url, headers=headers, json={"publish": True, "compete": True})
         log_response(response)
 
+        logging.debug(json.dumps(response.json(), indent=2))
+
     def validate_sso(self) -> None:
         url = f"{clientPortalUrl}/v1/api/sso/validate"
 
@@ -131,7 +134,15 @@ class IBKROAuthFlow:
         response = requests.get(url=url, headers=headers)
         log_response(response)
 
-    def tickle(self) -> None:
+        logging.debug(json.dumps(response.json(), indent=2))
+
+    def tickle(self) -> str:
+        """
+        Keeps session alive.
+
+        Returns:
+            Session ID.
+        """
         url = f"{clientPortalUrl}/v1/api/tickle"
 
         headers = {
@@ -142,7 +153,13 @@ class IBKROAuthFlow:
         logging.info("Send tickle.")
         response = requests.get(url=url, headers=headers)
         log_response(response)
-        return response.json()["session"]
+
+        self.session_id = response.json()["session"]
+
+        logging.info(f"Session ID: {self.session_id}")
+        logging.debug(json.dumps(response.json(), indent=2))
+
+        return self.session_id
 
     def logout(self) -> None:
         url = f"{clientPortalUrl}/v1/api/logout"
