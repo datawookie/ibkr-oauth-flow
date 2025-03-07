@@ -20,3 +20,11 @@ Documentation for the IBKR Web API is [here](https://www.interactivebrokers.com/
     ```bash
     python auth.py
     ```
+
+## Installation
+
+You can install from GitHub.
+
+```bash
+pip3 install git+https://github.com/datawookie/ibkr-oauth-flow
+```
