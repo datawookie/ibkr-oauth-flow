@@ -5,9 +5,12 @@ import yaml
 import ibkr_oauth_flow
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s [%(levelname)7s] %(message)s",
 )
+
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("charset_normalizer").setLevel(logging.WARNING)
 
 with open("config.yaml", "r") as file:
     config = yaml.safe_load(file)

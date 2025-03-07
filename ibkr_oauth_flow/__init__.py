@@ -1,5 +1,5 @@
 from .const import oauth2Url, gatewayUrl, clientPortalUrl, GRANT_TYPE, CLIENT_ASSERTION_TYPE, SCOPE, audience
-from .util import formatted_HTTPrequest, IP, make_jws
+from .util import log_response, IP, make_jws
 
 import math
 import logging
@@ -74,8 +74,9 @@ class IBKROAuthFlow:
             "scope": SCOPE,
         }
 
+        logging.info("Request access token.")
         token_request = requests.post(url=url, headers=headers, data=form_data)
-        print(formatted_HTTPrequest(token_request))
+        log_response(token_request)
 
         self.access_token = token_request.json()["access_token"]
 
@@ -88,8 +89,9 @@ class IBKROAuthFlow:
         }
 
         signed_request = self._compute_client_assertion(url)
+        logging.info("Request bearer token.")
         bearer_request = requests.post(url=url, headers=headers, data=signed_request)
-        print(formatted_HTTPrequest(bearer_request))
+        log_response(bearer_request)
 
         if bearer_request.status_code == 200:
             self.bearer_token = bearer_request.json()["access_token"]
@@ -104,28 +106,31 @@ class IBKROAuthFlow:
 
         url = f"{clientPortalUrl}/v1/api/iserver/auth/ssodh/init"
         json_data = {"publish": True, "compete": True}
+        logging.info("Initiate a brokerage session.")
         init_request = requests.post(url=url, headers=headers, json=json_data)
-        print(formatted_HTTPrequest(init_request))
+        log_response(init_request)
 
     def validate_sso(self) -> None:
         headers = {"Authorization": "Bearer " + self.bearer_token}
         headers["User-Agent"] = "python/3.11"
 
         url = f"{clientPortalUrl}/v1/api/sso/validate"  # Validates the current session for the user
+        logging.info("Validate brokerage session.")
         vsso_request = requests.get(
             url=url, headers=headers
         )  # Prepare and send request to /sso/validate endpoint, print request and response.
-        print(formatted_HTTPrequest(vsso_request))
+        log_response(vsso_request)
 
     def tickle(self) -> None:
         headers = {"Authorization": "Bearer " + self.bearer_token}
         headers["User-Agent"] = "python/3.11"
 
         url = f"{clientPortalUrl}/v1/api/tickle"  # Tickle endpoint, used to ping the server and/or being the process of opening a websocket connection
+        logging.info("Send tickle.")
         tickle_request = requests.get(
             url=url, headers=headers
         )  # Prepare and send request to /tickle endpoint, print request and response.
-        print(formatted_HTTPrequest(tickle_request))
+        log_response(tickle_request)
         return tickle_request.json()["session"]
 
     def logout(self) -> None:
@@ -133,5 +138,6 @@ class IBKROAuthFlow:
         headers["User-Agent"] = "python/3.11"
 
         url = f"{clientPortalUrl}/v1/api/logout"
+        logging.info("Terminate brokerage session.")
         logout_request = requests.post(url=url, headers=headers)
-        print(formatted_HTTPrequest(logout_request))
+        log_response(logout_request)
