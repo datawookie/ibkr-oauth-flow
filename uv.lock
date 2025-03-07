@@ -153,6 +153,15 @@ wheels = [
 ]
 
 [[package]]
+name = "curlify"
+version = "2.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fa/2c/9254b2294d0250291560d78e16e5cd764b8e2caa75d4cad1e8ae9d73899d/curlify-2.2.1.tar.gz", hash = "sha256:0d3f02e7235faf952de8ef45ef469845196d30632d5838bcd5aee217726ddd6d", size = 2970 }
+
+[[package]]
 name = "distlib"
 version = "0.3.9"
 source = { registry = "https://pypi.org/simple" }
@@ -173,9 +182,10 @@ wheels = [
 [[package]]
 name = "ibkr-oauth-flow"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
+    { name = "curlify" },
     { name = "pre-commit" },
     { name = "pyjwt" },
     { name = "pyyaml" },
@@ -186,6 +196,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "cryptography", specifier = ">=44.0.2" },
+    { name = "curlify", specifier = ">=2.2.1" },
     { name = "pre-commit", specifier = ">=4.1.0" },
     { name = "pyjwt", specifier = ">=2.10.1" },
     { name = "pyyaml", specifier = ">=6.0.2" },
