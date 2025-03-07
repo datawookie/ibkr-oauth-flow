@@ -11,6 +11,18 @@ import requests
 
 class IBKROAuthFlow:
     def __init__(self, client_id: str, client_key_id: str, credential: str, private_key_file: str):
+        if not client_id:
+            raise ValueError("Required parameter 'client_id' is missing.")
+
+        if not client_key_id:
+            raise ValueError("Required parameter 'client_key_id' is missing.")
+
+        if not credential:
+            raise ValueError("Required parameter 'credential' is missing.")
+
+        if not private_key_file:
+            raise ValueError("Required parameter 'private_key_file' is missing.")
+
         self.client_id = client_id
         self.client_key_id = client_key_id
         self.credential = credential
