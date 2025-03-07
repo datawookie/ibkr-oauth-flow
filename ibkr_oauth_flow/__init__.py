@@ -77,20 +77,18 @@ class IBKROAuthFlow:
 
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-        client_assertion = self._compute_client_assertion(url)
-
         form_data = {
             "grant_type": GRANT_TYPE,
-            "client_assertion": client_assertion,
+            "client_assertion": self._compute_client_assertion(url),
             "client_assertion_type": CLIENT_ASSERTION_TYPE,
             "scope": SCOPE,
         }
 
         logging.info("Request access token.")
-        token_request = requests.post(url=url, headers=headers, data=form_data)
-        log_response(token_request)
+        response = requests.post(url=url, headers=headers, data=form_data)
+        log_response(response)
 
-        self.access_token = token_request.json()["access_token"]
+        self.access_token = response.json()["access_token"]
 
     def get_bearer_token(self) -> None:
         url = f"{gatewayUrl}/api/v1/sso-sessions"
@@ -100,56 +98,60 @@ class IBKROAuthFlow:
             "Content-Type": "application/jwt",
         }
 
-        signed_request = self._compute_client_assertion(url)
         logging.info("Request bearer token.")
-        bearer_request = requests.post(url=url, headers=headers, data=signed_request)
-        log_response(bearer_request)
+        response = requests.post(url=url, headers=headers, data=self._compute_client_assertion(url))
+        log_response(response)
 
-        if bearer_request.status_code == 200:
-            self.bearer_token = bearer_request.json()["access_token"]
-        return
+        self.bearer_token = response.json()["access_token"]
 
     def ssodh_init(self) -> None:
         """
         Initialise a brokerage session.
         """
-        headers = {"Authorization": "Bearer " + self.bearer_token}
-        headers["User-Agent"] = "python/3.11"
-
         url = f"{clientPortalUrl}/v1/api/iserver/auth/ssodh/init"
-        json_data = {"publish": True, "compete": True}
+
+        headers = {
+            "Authorization": "Bearer " + self.bearer_token,
+            "User-Agent": "python/3.11",
+        }
+
         logging.info("Initiate a brokerage session.")
-        init_request = requests.post(url=url, headers=headers, json=json_data)
-        log_response(init_request)
+        response = requests.post(url=url, headers=headers, json={"publish": True, "compete": True})
+        log_response(response)
 
     def validate_sso(self) -> None:
-        headers = {"Authorization": "Bearer " + self.bearer_token}
-        headers["User-Agent"] = "python/3.11"
+        url = f"{clientPortalUrl}/v1/api/sso/validate"
 
-        url = f"{clientPortalUrl}/v1/api/sso/validate"  # Validates the current session for the user
+        headers = {
+            "Authorization": "Bearer " + self.bearer_token,
+            "User-Agent": "python/3.11",
+        }
+
         logging.info("Validate brokerage session.")
-        vsso_request = requests.get(
-            url=url, headers=headers
-        )  # Prepare and send request to /sso/validate endpoint, print request and response.
-        log_response(vsso_request)
+        response = requests.get(url=url, headers=headers)
+        log_response(response)
 
     def tickle(self) -> None:
-        headers = {"Authorization": "Bearer " + self.bearer_token}
-        headers["User-Agent"] = "python/3.11"
+        url = f"{clientPortalUrl}/v1/api/tickle"
 
-        url = f"{clientPortalUrl}/v1/api/tickle"  # Tickle endpoint, used to ping the server and/or being the process of opening a websocket connection
+        headers = {
+            "Authorization": "Bearer " + self.bearer_token,
+            "User-Agent": "python/3.11",
+        }
+
         logging.info("Send tickle.")
-        tickle_request = requests.get(
-            url=url, headers=headers
-        )  # Prepare and send request to /tickle endpoint, print request and response.
-        log_response(tickle_request)
-        return tickle_request.json()["session"]
+        response = requests.get(url=url, headers=headers)
+        log_response(response)
+        return response.json()["session"]
 
     def logout(self) -> None:
-        headers = {"Authorization": "Bearer " + self.bearer_token}
-        headers["User-Agent"] = "python/3.11"
-
         url = f"{clientPortalUrl}/v1/api/logout"
+
+        headers = {
+            "Authorization": "Bearer " + self.bearer_token,
+            "User-Agent": "python/3.11",
+        }
+
         logging.info("Terminate brokerage session.")
-        logout_request = requests.post(url=url, headers=headers)
-        log_response(logout_request)
+        response = requests.post(url=url, headers=headers)
+        log_response(response)
