@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "bump2version>=1.0.1",
     "cryptography>=44.0.2",
     "curlify>=2.2.1",
     "pre-commit>=4.1.0",
