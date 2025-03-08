@@ -8,7 +8,7 @@ import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from .const import oauth2Url, gatewayUrl, clientPortalUrl, GRANT_TYPE, CLIENT_ASSERTION_TYPE, SCOPE, audience
-from .util import log_response, IP, make_jws
+from .util import log_response, make_jws
 
 
 class IBKROAuthFlow:
@@ -39,6 +39,22 @@ class IBKROAuthFlow:
         self.access_token = None
         self.bearer_token = None
 
+        self.IP = None
+        self._check_ip()
+
+    def _check_ip(self) -> str:
+        """
+        Get public IP address.
+        """
+        IP = requests.get("https://api.ipify.org").content.decode("utf8")
+
+        logging.info(f"Public IP: {IP}.")
+        if self.IP and self.IP != IP:
+            logging.warning("🚨 Public IP has changed.")
+
+        self.IP = IP
+        return IP
+
     def _compute_client_assertion(self, url) -> str:
         now = math.floor(time.time())
         header = {"alg": "RS256", "typ": "JWT", "kid": f"{self.client_key_id}"}
@@ -54,7 +70,7 @@ class IBKROAuthFlow:
 
         elif url == f"{gatewayUrl}/api/v1/sso-sessions":
             claims = {
-                "ip": IP,
+                "ip": self.IP,
                 #'service': "AM.LOGIN",
                 "credential": f"{self.credential}",
                 "iss": f"{self.client_id}",
