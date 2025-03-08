@@ -1,4 +1,5 @@
 import logging
+import time
 
 import yaml
 
@@ -30,6 +31,8 @@ if __name__ == "__main__":
     auth.validate_sso()
 
     # This will keep session alive.
-    auth.tickle()
+    for _ in range(10):
+        auth.tickle()
+        time.sleep(10)
 
     auth.logout()

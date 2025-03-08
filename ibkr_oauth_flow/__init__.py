@@ -39,14 +39,22 @@ class IBKROAuthFlow:
         self.access_token = None
         self.bearer_token = None
 
+        # These fields are set in the tickle() method.
+        #
+        self.authenticated = None
+        self.connected = None
+        self.competing = None
+
         self.IP = None
-        self._check_ip()
+
+        self.session = requests.Session()
 
     def _check_ip(self) -> str:
         """
         Get public IP address.
         """
-        IP = requests.get("https://api.ipify.org").content.decode("utf8")
+        logging.debug("Check public IP.")
+        IP = requests.get("https://api.ipify.org", timeout=10).content.decode("utf8")
 
         logging.info(f"Public IP: {IP}.")
         if self.IP and self.IP != IP:
@@ -71,7 +79,6 @@ class IBKROAuthFlow:
         elif url == f"{gatewayUrl}/api/v1/sso-sessions":
             claims = {
                 "ip": self.IP,
-                #'service': "AM.LOGIN",
                 "credential": f"{self.credential}",
                 "iss": f"{self.client_id}",
                 "exp": now + 86400,
@@ -103,7 +110,7 @@ class IBKROAuthFlow:
         }
 
         logging.info("Request access token.")
-        response = requests.post(url=url, headers=headers, data=form_data)
+        response = self.session.post(url=url, headers=headers, data=form_data)
         log_response(response)
 
         self.access_token = response.json()["access_token"]
@@ -115,6 +122,9 @@ class IBKROAuthFlow:
             "Authorization": "Bearer " + self.access_token,
             "Content-Type": "application/jwt",
         }
+
+        # Initialise IP (it's embedded in the bearer token).
+        self._check_ip()
 
         logging.info("Request bearer token.")
         response = requests.post(url=url, headers=headers, data=self._compute_client_assertion(url))
@@ -153,11 +163,12 @@ class IBKROAuthFlow:
         }
 
         logging.info("Validate brokerage session.")
-        response = requests.get(url=url, headers=headers)
+        response = self.session.get(url=url, headers=headers)
         log_response(response)
 
         logging.debug(json.dumps(response.json(), indent=2))
 
+    @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=5))
     def tickle(self) -> str:
         """
         Keeps session alive.
@@ -173,12 +184,27 @@ class IBKROAuthFlow:
         }
 
         logging.info("Send tickle.")
-        response = requests.get(url=url, headers=headers)
-        log_response(response)
+        try:
+            response = requests.get(url=url, headers=headers, timeout=10)
+            log_response(response)
+        except (requests.exceptions.HTTPError, requests.exceptions.ReadTimeout):
+            logging.error("⛔ Error connecting to session.")
+            self.get_bearer_token()
+            self.ssodh_init()
+            raise
+
 
         self.session_id = response.json()["session"]
+        auth_status = response.json()["iserver"]["authStatus"]
+        self.authenticated = auth_status["authenticated"]
+        self.competing = auth_status["competing"]
+        self.connected = auth_status["connected"]
 
         logging.info(f"Session ID: {self.session_id}")
+        logging.info(f"- authenticated: {self.authenticated}")
+        logging.info(f"- competing:     {self.competing}")
+        logging.info(f"- connected:     {self.connected}")
+
         logging.debug(json.dumps(response.json(), indent=2))
 
         return self.session_id
@@ -192,5 +218,5 @@ class IBKROAuthFlow:
         }
 
         logging.info("Terminate brokerage session.")
-        response = requests.post(url=url, headers=headers)
+        response = self.session.post(url=url, headers=headers)
         log_response(response)
