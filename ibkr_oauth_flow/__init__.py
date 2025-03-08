@@ -5,6 +5,7 @@ import time
 
 from cryptography.hazmat.primitives import serialization
 import requests
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from .const import oauth2Url, gatewayUrl, clientPortalUrl, GRANT_TYPE, CLIENT_ASSERTION_TYPE, SCOPE, audience
 from .util import log_response, IP, make_jws
@@ -105,6 +106,7 @@ class IBKROAuthFlow:
 
         self.bearer_token = response.json()["access_token"]
 
+    @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=5))
     def ssodh_init(self) -> None:
         """
         Initialise a brokerage session.
@@ -117,8 +119,12 @@ class IBKROAuthFlow:
         }
 
         logging.info("Initiate a brokerage session.")
-        response = requests.post(url=url, headers=headers, json={"publish": True, "compete": True})
-        log_response(response)
+        try:
+            response = requests.post(url=url, headers=headers, json={"publish": True, "compete": True})
+            log_response(response)
+        except requests.exceptions.HTTPError:
+            logging.error("⛔ Error initiating a brokerage session.")
+            raise
 
         logging.debug(json.dumps(response.json(), indent=2))
 

@@ -12,6 +12,7 @@ dependencies = [
     "pyyaml>=6.0.2",
     "requests>=2.32.3",
     "ruff>=0.9.9",
+    "tenacity>=9.0.0",
 ]
 
 [build-system]

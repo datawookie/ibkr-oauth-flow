@@ -16,5 +16,6 @@ PyJWT==2.10.1
 PyYAML==6.0.2
 requests==2.32.3
 ruff==0.9.9
+tenacity==9.0.0
 urllib3==2.3.0
 virtualenv==20.29.2
