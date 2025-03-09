@@ -1,6 +1,7 @@
 import json
 import math
 import logging
+from typing import Any
 import time
 
 from cryptography.hazmat.primitives import serialization
@@ -49,7 +50,7 @@ class IBKROAuthFlow:
 
         self.session = requests.Session()
 
-    def _check_ip(self) -> str:
+    def _check_ip(self) -> Any:
         """
         Get public IP address.
         """
@@ -63,7 +64,7 @@ class IBKROAuthFlow:
         self.IP = IP
         return IP
 
-    def _compute_client_assertion(self, url) -> str:
+    def _compute_client_assertion(self, url: str) -> Any:
         now = math.floor(time.time())
         header = {"alg": "RS256", "typ": "JWT", "kid": f"{self.client_key_id}"}
 
@@ -119,7 +120,7 @@ class IBKROAuthFlow:
         url = f"{gatewayUrl}/api/v1/sso-sessions"
 
         headers = {
-            "Authorization": "Bearer " + self.access_token,
+            "Authorization": "Bearer " + self.access_token,  # type: ignore
             "Content-Type": "application/jwt",
         }
 
@@ -132,7 +133,7 @@ class IBKROAuthFlow:
 
         self.bearer_token = response.json()["access_token"]
 
-    @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=5))
+    @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=5))  # type: ignore
     def ssodh_init(self) -> None:
         """
         Initialise a brokerage session.
@@ -140,7 +141,7 @@ class IBKROAuthFlow:
         url = f"{clientPortalUrl}/v1/api/iserver/auth/ssodh/init"
 
         headers = {
-            "Authorization": "Bearer " + self.bearer_token,
+            "Authorization": "Bearer " + self.bearer_token,  # type: ignore
             "User-Agent": "python/3.11",
         }
 
@@ -158,7 +159,7 @@ class IBKROAuthFlow:
         url = f"{clientPortalUrl}/v1/api/sso/validate"
 
         headers = {
-            "Authorization": "Bearer " + self.bearer_token,
+            "Authorization": "Bearer " + self.bearer_token,  # type: ignore
             "User-Agent": "python/3.11",
         }
 
@@ -168,7 +169,7 @@ class IBKROAuthFlow:
 
         logging.debug(json.dumps(response.json(), indent=2))
 
-    @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=5))
+    @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=5))  # type: ignore
     def tickle(self) -> str:
         """
         Keeps session alive.
@@ -179,7 +180,7 @@ class IBKROAuthFlow:
         url = f"{clientPortalUrl}/v1/api/tickle"
 
         headers = {
-            "Authorization": "Bearer " + self.bearer_token,
+            "Authorization": "Bearer " + self.bearer_token,  # type: ignore
             "User-Agent": "python/3.11",
         }
 
@@ -193,8 +194,7 @@ class IBKROAuthFlow:
             self.ssodh_init()
             raise
 
-
-        self.session_id = response.json()["session"]
+        self.session_id: str = response.json()["session"]
         auth_status = response.json()["iserver"]["authStatus"]
         self.authenticated = auth_status["authenticated"]
         self.competing = auth_status["competing"]
@@ -213,7 +213,7 @@ class IBKROAuthFlow:
         url = f"{clientPortalUrl}/v1/api/logout"
 
         headers = {
-            "Authorization": "Bearer " + self.bearer_token,
+            "Authorization": "Bearer " + self.bearer_token,  # type: ignore
             "User-Agent": "python/3.11",
         }
 

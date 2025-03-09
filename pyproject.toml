@@ -8,6 +8,7 @@ dependencies = [
     "bump2version>=1.0.1",
     "cryptography>=44.0.2",
     "curlify>=2.2.1",
+    "mypy>=1.15.0",
     "pre-commit>=4.1.0",
     "pyjwt>=2.10.1",
     "pyyaml>=6.0.2",
@@ -18,3 +19,8 @@ dependencies = [
 
 [build-system]
 requires = ["setuptools"]
+
+[tool.mypy]
+  [[tool.mypy.overrides]]
+    module = ["requests", "curlify", "yaml"]
+    ignore_missing_imports = true

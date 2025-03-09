@@ -2,6 +2,7 @@ import time
 import jwt
 import curlify
 import logging
+from typing import Any
 
 from requests import Response
 
@@ -16,7 +17,7 @@ def log_response(response: Response) -> None:
     response.raise_for_status()
 
 
-def make_jws(header, claims, clientPrivateKey):
+def make_jws(header: dict[str, Any], claims: dict[str, Any], clientPrivateKey: Any) -> Any:
     # Set expiration time.
     claims["exp"] = int(time.time()) + 600
     claims["iat"] = int(time.time())
