@@ -8,18 +8,14 @@ from cryptography.hazmat.primitives import serialization
 import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from .const import GRANT_TYPE, CLIENT_ASSERTION_TYPE, SCOPE
+from .const import GRANT_TYPE, CLIENT_ASSERTION_TYPE, SCOPE, VALID_DOMAINS
 from .util import log_response, make_jws
 
 
-DOMAIN = "api.ibkr.com"
-url_oauth2 = f"https://{DOMAIN}/oauth2"
-url_gateway = f"https://{DOMAIN}/gw"
-url_client_portal = f"https://{DOMAIN}"
-
-
 class IBKROAuthFlow:
-    def __init__(self, client_id: str, client_key_id: str, credential: str, private_key_file: str):
+    def __init__(
+        self, client_id: str, client_key_id: str, credential: str, private_key_file: str, domain: str = "api.ibkr.com"
+    ):
         if not client_id:
             raise ValueError("Required parameter 'client_id' is missing.")
 
@@ -31,6 +27,12 @@ class IBKROAuthFlow:
 
         if not private_key_file:
             raise ValueError("Required parameter 'private_key_file' is missing.")
+
+        if domain not in VALID_DOMAINS:
+            raise ValueError(f"Invalid domain: {domain}.")
+        else:
+            logging.info(f"Domain: {domain}.")
+            self.domain = domain
 
         self.client_id = client_id
         self.client_key_id = client_key_id
@@ -56,6 +58,18 @@ class IBKROAuthFlow:
 
         self.session = requests.Session()
 
+    @property
+    def url_oauth2(self) -> str:
+        return f"https://{self.domain}/oauth2"
+
+    @property
+    def url_gateway(self) -> str:
+        return f"https://{self.domain}/gw"
+
+    @property
+    def url_client_portal(self) -> str:
+        return f"https://{self.domain}"
+
     def _check_ip(self) -> Any:
         """
         Get public IP address.
@@ -74,7 +88,7 @@ class IBKROAuthFlow:
         now = math.floor(time.time())
         header = {"alg": "RS256", "typ": "JWT", "kid": f"{self.client_key_id}"}
 
-        if url == f"{url_oauth2}/api/v1/token":
+        if url == f"{self.url_oauth2}/api/v1/token":
             claims = {
                 "iss": f"{self.client_id}",
                 "sub": f"{self.client_id}",
@@ -83,7 +97,7 @@ class IBKROAuthFlow:
                 "iat": now - 10,
             }
 
-        elif url == f"{url_gateway}/api/v1/sso-sessions":
+        elif url == f"{self.url_gateway}/api/v1/sso-sessions":
             claims = {
                 "ip": self.IP,
                 "credential": f"{self.credential}",
@@ -105,7 +119,7 @@ class IBKROAuthFlow:
         Returns:
             str: The access token.
         """
-        url = f"{url_oauth2}/api/v1/token"
+        url = f"{self.url_oauth2}/api/v1/token"
 
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
@@ -123,7 +137,7 @@ class IBKROAuthFlow:
         self.access_token = response.json()["access_token"]
 
     def get_bearer_token(self) -> None:
-        url = f"{url_gateway}/api/v1/sso-sessions"
+        url = f"{self.url_gateway}/api/v1/sso-sessions"
 
         headers = {
             "Authorization": "Bearer " + self.access_token,  # type: ignore
@@ -144,7 +158,7 @@ class IBKROAuthFlow:
         """
         Initialise a brokerage session.
         """
-        url = f"{url_client_portal}/v1/api/iserver/auth/ssodh/init"
+        url = f"{self.url_client_portal}/v1/api/iserver/auth/ssodh/init"
 
         headers = {
             "Authorization": "Bearer " + self.bearer_token,  # type: ignore
@@ -162,7 +176,7 @@ class IBKROAuthFlow:
         logging.debug(json.dumps(response.json(), indent=2))
 
     def validate_sso(self) -> None:
-        url = f"{url_client_portal}/v1/api/sso/validate"
+        url = f"{self.url_client_portal}/v1/api/sso/validate"
 
         headers = {
             "Authorization": "Bearer " + self.bearer_token,  # type: ignore
@@ -183,7 +197,7 @@ class IBKROAuthFlow:
         Returns:
             Session ID.
         """
-        url = f"{url_client_portal}/v1/api/tickle"
+        url = f"{self.url_client_portal}/v1/api/tickle"
 
         headers = {
             "Authorization": "Bearer " + self.bearer_token,  # type: ignore
@@ -216,7 +230,7 @@ class IBKROAuthFlow:
         return self.session_id
 
     def logout(self) -> None:
-        url = f"{url_client_portal}/v1/api/logout"
+        url = f"{self.url_client_portal}/v1/api/logout"
 
         headers = {
             "Authorization": "Bearer " + self.bearer_token,  # type: ignore
