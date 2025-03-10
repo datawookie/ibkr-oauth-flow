@@ -3,6 +3,7 @@ import math
 import logging
 from typing import Any
 import time
+import yaml
 
 from cryptography.hazmat.primitives import serialization
 import requests
@@ -240,3 +241,25 @@ class IBKROAuthFlow:
         logging.info("Terminate brokerage session.")
         response = self.session.post(url=url, headers=headers)
         log_response(response)
+
+
+def auth_from_yaml(path: str) -> IBKROAuthFlow:
+    """
+    Create an IBKROAuthFlow instance from a YAML configuration file.
+
+    Args:
+        path (str): The path to the YAML configuration file.
+
+    Returns:
+        IBKROAuthFlow: An instance of IBKROAuthFlow.
+    """
+    with open(path, "r") as file:
+        config = yaml.safe_load(file)
+
+    return IBKROAuthFlow(
+        client_id=config["client_id"],
+        client_key_id=config["client_key_id"],
+        credential=config["credential"],
+        private_key_file=config["private_key_file"],
+        domain=config.get("domain", "api.ibkr.com"),
+    )
