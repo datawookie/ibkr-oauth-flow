@@ -25,4 +25,10 @@ if __name__ == "__main__":
         auth.tickle()
         time.sleep(10)
 
+    # Dynamically change the API domain.
+    #
+    auth.domain = "5.api.ibkr.com"
+
+    auth.tickle()
+
     auth.logout()

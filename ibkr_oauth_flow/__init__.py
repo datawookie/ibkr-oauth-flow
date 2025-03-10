@@ -32,7 +32,6 @@ class IBKROAuthFlow:
         if domain not in VALID_DOMAINS:
             raise ValueError(f"Invalid domain: {domain}.")
         else:
-            logging.info(f"Domain: {domain}.")
             self.domain = domain
 
         self.client_id = client_id
@@ -70,6 +69,21 @@ class IBKROAuthFlow:
     @property
     def url_client_portal(self) -> str:
         return f"https://{self.domain}"
+
+
+    @property
+    def domain(self) -> str:
+        return self._domain
+
+    @domain.setter
+    def domain(self, value: str) -> None:
+        """
+        Set and validate the domain.
+        """
+        if value not in VALID_DOMAINS:
+            raise ValueError(f"Invalid domain: {value}. Must be one of {VALID_DOMAINS}.")
+        logging.info(f"Domain: {value}")
+        self._domain = value
 
     def _check_ip(self) -> Any:
         """
