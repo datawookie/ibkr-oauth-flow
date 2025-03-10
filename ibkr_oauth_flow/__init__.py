@@ -6,11 +6,10 @@ import time
 import yaml
 
 from cryptography.hazmat.primitives import serialization
-import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from .const import GRANT_TYPE, CLIENT_ASSERTION_TYPE, SCOPE, VALID_DOMAINS
-from .util import log_response, make_jws
+from .util import make_jws, get, post, ReadTimeout, HTTPError
 
 
 class IBKROAuthFlow:
@@ -56,8 +55,6 @@ class IBKROAuthFlow:
 
         self.IP = None
 
-        self.session = requests.Session()
-
     @property
     def url_oauth2(self) -> str:
         return f"https://{self.domain}/oauth2"
@@ -69,7 +66,6 @@ class IBKROAuthFlow:
     @property
     def url_client_portal(self) -> str:
         return f"https://{self.domain}"
-
 
     @property
     def domain(self) -> str:
@@ -90,7 +86,7 @@ class IBKROAuthFlow:
         Get public IP address.
         """
         logging.debug("Check public IP.")
-        IP = requests.get("https://api.ipify.org", timeout=10).content.decode("utf8")
+        IP = get("https://api.ipify.org", timeout=10).content.decode("utf8")
 
         logging.info(f"Public IP: {IP}.")
         if self.IP and self.IP != IP:
@@ -146,8 +142,7 @@ class IBKROAuthFlow:
         }
 
         logging.info("Request access token.")
-        response = self.session.post(url=url, headers=headers, data=form_data)
-        log_response(response)
+        response = post(url=url, headers=headers, data=form_data)
 
         self.access_token = response.json()["access_token"]
 
@@ -163,8 +158,7 @@ class IBKROAuthFlow:
         self._check_ip()
 
         logging.info("Request bearer token.")
-        response = requests.post(url=url, headers=headers, data=self._compute_client_assertion(url))
-        log_response(response)
+        response = post(url=url, headers=headers, data=self._compute_client_assertion(url))
 
         self.bearer_token = response.json()["access_token"]
 
@@ -182,9 +176,8 @@ class IBKROAuthFlow:
 
         logging.info("Initiate a brokerage session.")
         try:
-            response = requests.post(url=url, headers=headers, json={"publish": True, "compete": True})
-            log_response(response)
-        except requests.exceptions.HTTPError:
+            response = post(url=url, headers=headers, json={"publish": True, "compete": True})
+        except HTTPError:
             logging.error("⛔ Error initiating a brokerage session.")
             raise
 
@@ -199,8 +192,7 @@ class IBKROAuthFlow:
         }
 
         logging.info("Validate brokerage session.")
-        response = self.session.get(url=url, headers=headers)
-        log_response(response)
+        response = get(url=url, headers=headers)
 
         logging.debug(json.dumps(response.json(), indent=2))
 
@@ -221,9 +213,8 @@ class IBKROAuthFlow:
 
         logging.info("Send tickle.")
         try:
-            response = requests.get(url=url, headers=headers, timeout=10)
-            log_response(response)
-        except (requests.exceptions.HTTPError, requests.exceptions.ReadTimeout):
+            response = get(url=url, headers=headers, timeout=10)
+        except (HTTPError, ReadTimeout):
             logging.error("⛔ Error connecting to session.")
             self.get_bearer_token()
             self.ssodh_init()
@@ -253,8 +244,7 @@ class IBKROAuthFlow:
         }
 
         logging.info("Terminate brokerage session.")
-        response = self.session.post(url=url, headers=headers)
-        log_response(response)
+        post(url=url, headers=headers)
 
 
 def auth_from_yaml(path: str) -> IBKROAuthFlow:
