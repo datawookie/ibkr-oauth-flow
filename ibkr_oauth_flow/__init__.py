@@ -1,15 +1,16 @@
-import json
 import math
-import logging
 from typing import Any
 import time
 import yaml
+from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from .const import GRANT_TYPE, CLIENT_ASSERTION_TYPE, SCOPE, VALID_DOMAINS
 from .util import make_jws, get, post, ReadTimeout, HTTPError
+
+from .logger import logger
 
 
 class IBKROAuthFlow:
@@ -37,7 +38,7 @@ class IBKROAuthFlow:
         self.client_key_id = client_key_id
         self.credential = credential
 
-        logging.info(f"Load private key from {private_key_file}.")
+        logger.info(f"Load private key from {private_key_file}.")
         with open(private_key_file, "r") as file:
             self.private_key = serialization.load_pem_private_key(
                 file.read().encode(),
@@ -78,19 +79,19 @@ class IBKROAuthFlow:
         """
         if value not in VALID_DOMAINS:
             raise ValueError(f"Invalid domain: {value}. Must be one of {VALID_DOMAINS}.")
-        logging.info(f"Domain: {value}")
+        logger.info(f"Domain: {value}")
         self._domain = value
 
     def _check_ip(self) -> Any:
         """
         Get public IP address.
         """
-        logging.debug("Check public IP.")
+        logger.debug("Check public IP.")
         IP = get("https://api.ipify.org", timeout=10).content.decode("utf8")
 
-        logging.info(f"Public IP: {IP}.")
+        logger.info(f"Public IP: {IP}.")
         if self.IP and self.IP != IP:
-            logging.warning("🚨 Public IP has changed.")
+            logger.warning("🚨 Public IP has changed.")
 
         self.IP = IP
         return IP
@@ -117,8 +118,8 @@ class IBKROAuthFlow:
                 "iat": now,
             }
 
-        logging.debug(f"Header: {header}.")
-        logging.debug(f"Claims: {claims}.")
+        logger.debug(f"Header: {header}.")
+        logger.debug(f"Claims: {claims}.")
 
         return make_jws(header, claims, self.private_key)
 
@@ -141,7 +142,7 @@ class IBKROAuthFlow:
             "scope": SCOPE,
         }
 
-        logging.info("Request access token.")
+        logger.info("Request access token.")
         response = post(url=url, headers=headers, data=form_data)
 
         self.access_token = response.json()["access_token"]
@@ -157,7 +158,7 @@ class IBKROAuthFlow:
         # Initialise IP (it's embedded in the bearer token).
         self._check_ip()
 
-        logging.info("Request bearer token.")
+        logger.info("Request bearer token.")
         response = post(url=url, headers=headers, data=self._compute_client_assertion(url))
 
         self.bearer_token = response.json()["access_token"]
@@ -174,14 +175,14 @@ class IBKROAuthFlow:
             "User-Agent": "python/3.11",
         }
 
-        logging.info("Initiate a brokerage session.")
+        logger.info("Initiate a brokerage session.")
         try:
             response = post(url=url, headers=headers, json={"publish": True, "compete": True})
         except HTTPError:
-            logging.error("⛔ Error initiating a brokerage session.")
+            logger.error("⛔ Error initiating a brokerage session.")
             raise
 
-        logging.debug(json.dumps(response.json(), indent=2))
+        logger.debug(f"Response content: {response.json()}.")
 
     def validate_sso(self) -> None:
         url = f"{self.url_client_portal}/v1/api/sso/validate"
@@ -191,10 +192,10 @@ class IBKROAuthFlow:
             "User-Agent": "python/3.11",
         }
 
-        logging.info("Validate brokerage session.")
+        logger.info("Validate brokerage session.")
         response = get(url=url, headers=headers)
 
-        logging.debug(json.dumps(response.json(), indent=2))
+        logger.debug(f"Response content: {response.json()}.")
 
     @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=5))  # type: ignore
     def tickle(self) -> str:
@@ -211,11 +212,11 @@ class IBKROAuthFlow:
             "User-Agent": "python/3.11",
         }
 
-        logging.info("Send tickle.")
+        logger.info("Send tickle.")
         try:
             response = get(url=url, headers=headers, timeout=10)
         except (HTTPError, ReadTimeout):
-            logging.error("⛔ Error connecting to session.")
+            logger.error("⛔ Error connecting to session.")
             self.get_bearer_token()
             self.ssodh_init()
             raise
@@ -226,24 +227,28 @@ class IBKROAuthFlow:
         self.competing = auth_status["competing"]
         self.connected = auth_status["connected"]
 
-        logging.info(f"Session ID: {self.session_id}")
-        logging.info(f"- authenticated: {self.authenticated}")
-        logging.info(f"- competing:     {self.competing}")
-        logging.info(f"- connected:     {self.connected}")
+        logger.debug(f"Session ID: {self.session_id}")
+        logger.debug(f"- authenticated: {self.authenticated}")
+        logger.debug(f"- competing:     {self.competing}")
+        logger.debug(f"- connected:     {self.connected}")
 
-        logging.debug(json.dumps(response.json(), indent=2))
+        logger.debug(f"Response content: {response.json()}.")
 
         return self.session_id
 
     def logout(self) -> None:
         url = f"{self.url_client_portal}/v1/api/logout"
 
+        if self.bearer_token is None:
+            logger.warning("🚨 Not terminating brokerage session (no bearer token found).")
+            return
+
         headers = {
-            "Authorization": "Bearer " + self.bearer_token,  # type: ignore
+            "Authorization": "Bearer " + self.bearer_token,
             "User-Agent": "python/3.11",
         }
 
-        logging.info("Terminate brokerage session.")
+        logger.info("Terminate brokerage session.")
         post(url=url, headers=headers)
 
 
@@ -257,7 +262,9 @@ def auth_from_yaml(path: str) -> IBKROAuthFlow:
     Returns:
         IBKROAuthFlow: An instance of IBKROAuthFlow.
     """
-    with open(path, "r") as file:
+    path_absolute = Path(path).resolve()
+    logger.info(f"Load configuration from {path_absolute}.")
+    with open(path_absolute, "r") as file:
         config = yaml.safe_load(file)
 
     return IBKROAuthFlow(

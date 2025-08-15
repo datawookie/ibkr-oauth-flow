@@ -1,6 +1,6 @@
 [project]
 name = "ibkr-oauth-flow"
-version = "0.1.0"
+version = "0.0.1"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -21,6 +21,14 @@ dependencies = [
 requires = ["setuptools"]
 
 [tool.mypy]
-  [[tool.mypy.overrides]]
-    module = ["requests", "curlify", "yaml"]
-    ignore_missing_imports = true
+ignore_missing_imports = false
+
+[[tool.mypy.overrides]]
+module = ["requests", "requests.exceptions", "curlify", "yaml"]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["I", "F"]
