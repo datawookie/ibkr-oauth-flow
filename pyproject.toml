@@ -1,7 +1,7 @@
 [project]
-name = "ibkr-oauth-flow"
+name = "ibauth"
 version = "0.0.2"
-description = "Add your description here"
+description = "Interactive Brokers OAuth"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
