@@ -28,3 +28,11 @@ You can install from GitHub.
 ```bash
 pip3 install git+https://github.com/datawookie/ibkr-oauth-flow
 ```
+
+## Deploying to PyPi
+
+This requires `UV_PUBLISH_TOKEN` to be set to a PyPi token in environment.
+
+```bash
+make deploy
+```
