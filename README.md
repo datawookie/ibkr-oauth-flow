@@ -12,9 +12,12 @@ Documentation for the IBKR Web API is [here](https://www.interactivebrokers.com/
     client_key_id: ""
     credential: ""
     private_key_file: ""
+    domain: "api.ibkr.com"
     ```
 
-    The private key file will usually have a `.pem` extension.
+    The private key file will usually have a `.pem` extension. The domain will
+    normally be `api.ibkr.com` but it's also possible to access the API via
+    other sub-domains like `1.api.ibkr.com`.
 5. Run the test script.
 
     ```bash

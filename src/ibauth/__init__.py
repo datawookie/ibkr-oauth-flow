@@ -15,7 +15,12 @@ from .logger import logger
 
 class IBKROAuthFlow:
     def __init__(
-        self, client_id: str, client_key_id: str, credential: str, private_key_file: str, domain: str = "api.ibkr.com"
+        self,
+        client_id: str,
+        client_key_id: str,
+        credential: str,
+        private_key_file: str | Path,
+        domain: str = "api.ibkr.com",
     ):
         if not client_id:
             raise ValueError("Required parameter 'client_id' is missing.")
@@ -45,8 +50,8 @@ class IBKROAuthFlow:
                 password=None,
             )
 
-        self.access_token = None
-        self.bearer_token = None
+        self.access_token: str | None = None
+        self.bearer_token: str | None = None
 
         # These fields are set in the tickle() method.
         #
@@ -212,7 +217,7 @@ class IBKROAuthFlow:
             "User-Agent": "python/3.11",
         }
 
-        logger.info("Send tickle.")
+        logger.info("🔔 Send tickle.")
         try:
             response = get(url=url, headers=headers, timeout=10)
         except (HTTPError, ReadTimeout):
@@ -252,20 +257,20 @@ class IBKROAuthFlow:
         post(url=url, headers=headers)
 
 
-def auth_from_yaml(path: str) -> IBKROAuthFlow:
+def auth_from_yaml(path: str | Path) -> IBKROAuthFlow:
     """
     Create an IBKROAuthFlow instance from a YAML configuration file.
 
     Args:
-        path (str): The path to the YAML configuration file.
+        path (str | Path): The path to the YAML configuration file.
 
     Returns:
         IBKROAuthFlow: An instance of IBKROAuthFlow.
     """
     path_absolute = Path(path).resolve()
     logger.info(f"Load configuration from {path_absolute}.")
-    with open(path_absolute, "r") as file:
-        config = yaml.safe_load(file)
+    with open(path_absolute, "r") as f:
+        config = yaml.safe_load(f)
 
     return IBKROAuthFlow(
         client_id=config["client_id"],

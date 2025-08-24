@@ -17,6 +17,19 @@ dependencies = [
     "tenacity>=9.0.0",
 ]
 
+[dependency-groups]
+dev = [
+    "mypy>=1.16.0",
+    "ruff>=0.12.9",
+]
+test = [
+    "pytest>=8.3.5",
+    "pytest-asyncio>=1.1.0",
+    "pytest-cov>=6.1.1",
+    "pytest-socket>=0.7.0",
+    "pytest-timeout>=2.4.0",
+]
+
 [build-system]
 requires = ["setuptools"]
 
@@ -32,3 +45,12 @@ line-length = 120
 
 [tool.ruff.lint]
 select = ["I", "F"]
+
+[tool.uv]
+default-groups = ["dev", "test"]
+
+[tool.coverage.report]
+include = ["src/*"]
+show_missing = true
+skip_covered = true
+precision = 1

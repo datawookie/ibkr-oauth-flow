@@ -8,3 +8,4 @@ wheels/
 privatekey.pem
 config.yaml
 *.code-workspace
+.coverage
