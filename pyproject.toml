@@ -26,7 +26,6 @@ test = [
     "pytest>=8.3.5",
     "pytest-asyncio>=1.1.0",
     "pytest-cov>=6.1.1",
-    "pytest-socket>=0.7.0",
     "pytest-timeout>=2.4.0",
 ]
 
@@ -40,6 +39,13 @@ ignore_missing_imports = false
 module = ["requests", "requests.exceptions", "curlify", "yaml"]
 ignore_missing_imports = true
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--timeout=10"]
+markers = [
+  "integration: Tests that require a running ibproxy.",
+]
+
 [tool.ruff]
 line-length = 120
 
@@ -52,5 +58,5 @@ default-groups = ["dev", "test"]
 [tool.coverage.report]
 include = ["src/*"]
 show_missing = true
-skip_covered = true
+skip_covered = false
 precision = 1
