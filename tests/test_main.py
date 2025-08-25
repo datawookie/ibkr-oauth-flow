@@ -46,7 +46,7 @@ def test_invalid_domain(private_key_file: Path) -> None:
         IBKROAuthFlow("cid", "kid", "cred", private_key_file, domain="not.valid")
 
 
-@patch("ibauth.get")
+@patch("ibauth.auth.get")
 def test_check_ip_sets_ip(mock_get: Mock, flow: IBKROAuthFlow) -> None:
     mock_get.return_value.content = b"1.2.3.4"
     ip = flow._check_ip()
@@ -54,14 +54,14 @@ def test_check_ip_sets_ip(mock_get: Mock, flow: IBKROAuthFlow) -> None:
     assert flow.IP == "1.2.3.4"
 
 
-@patch("ibauth.post")
+@patch("ibauth.auth.post")
 def test_get_access_token(mock_post: Mock, flow: IBKROAuthFlow) -> None:
     mock_post.return_value.json.return_value = {"access_token": "abc123"}
     flow.get_access_token()
     assert flow.access_token == "abc123"
 
 
-@patch("ibauth.post")
+@patch("ibauth.auth.post")
 @patch.object(IBKROAuthFlow, "_check_ip")
 def test_get_bearer_token(mock_check_ip: Mock, mock_post: Mock, flow: IBKROAuthFlow) -> None:
     flow.access_token = "abc123"
@@ -72,14 +72,14 @@ def test_get_bearer_token(mock_check_ip: Mock, mock_post: Mock, flow: IBKROAuthF
     assert flow.bearer_token == "bearer123"
 
 
-@patch("ibauth.post")
+@patch("ibauth.auth.post")
 def test_ssodh_init_success(mock_post: Mock, flow: IBKROAuthFlow) -> None:
     flow.bearer_token = "bearer123"
     mock_post.return_value.json.return_value = {"status": "ok"}
     flow.ssodh_init()  # should not raise
 
 
-@patch("ibauth.get")
+@patch("ibauth.auth.get")
 def test_validate_sso(mock_get: Mock, flow: IBKROAuthFlow) -> None:
     flow.bearer_token = "bearer123"
     mock_get.return_value.json.return_value = {"result": "valid"}
@@ -87,7 +87,7 @@ def test_validate_sso(mock_get: Mock, flow: IBKROAuthFlow) -> None:
     mock_get.assert_called_once()
 
 
-@patch("ibauth.get")
+@patch("ibauth.auth.get")
 def test_tickle_success(mock_get: Mock, flow: IBKROAuthFlow) -> None:
     flow.bearer_token = "bearer123"
     mock_get.return_value.json.return_value = {
@@ -107,7 +107,7 @@ def test_tickle_success(mock_get: Mock, flow: IBKROAuthFlow) -> None:
     assert not flow.competing
 
 
-@patch("ibauth.post")
+@patch("ibauth.auth.post")
 def test_logout_with_token(mock_post: Mock, flow: IBKROAuthFlow) -> None:
     flow.bearer_token = "bearer123"
     flow.logout()
