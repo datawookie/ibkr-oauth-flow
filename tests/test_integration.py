@@ -1,5 +1,14 @@
+import os.path
+
 import pytest
 from ibauth import auth_from_yaml
+
+
+@pytest.fixture(scope="session", autouse=True)  # type: ignore[misc]
+def _ensure_configuration_present() -> None:
+    """Skip the integration suite if there is no config.yaml file."""
+    if not os.path.isfile("config.yaml"):
+        pytest.skip("No config.yaml file.")
 
 
 @pytest.mark.integration  # type: ignore[misc]
