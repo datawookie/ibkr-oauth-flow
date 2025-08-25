@@ -2,10 +2,12 @@ from collections.abc import Iterator
 import pytest
 from pathlib import Path
 from unittest.mock import patch, Mock
+from typing import Any
 
 import yaml
 
-from ibauth import IBKROAuthFlow, auth_from_yaml
+from ibauth import IBAuth, auth_from_yaml
+from ibauth.util import HTTPError
 
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
@@ -25,8 +27,8 @@ def private_key_file(tmp_path: Path) -> Iterator[Path]:
 
 
 @pytest.fixture  # type: ignore[misc]
-def flow(private_key_file: Path) -> IBKROAuthFlow:
-    return IBKROAuthFlow(
+def flow(private_key_file: Path) -> IBAuth:
+    return IBAuth(
         client_id="cid",
         client_key_id="kid",
         credential="cred",
@@ -35,19 +37,44 @@ def flow(private_key_file: Path) -> IBKROAuthFlow:
     )
 
 
-def test_init_valid(flow: IBKROAuthFlow) -> None:
+def test_init_valid(flow: IBAuth) -> None:
     assert flow.client_id == "cid"
     assert flow.domain == "api.ibkr.com"
     assert flow.private_key is not None
 
 
-def test_invalid_domain(private_key_file: Path) -> None:
+def test_invalid_domain_constructor(private_key_file: Path) -> None:
     with pytest.raises(ValueError):
-        IBKROAuthFlow("cid", "kid", "cred", private_key_file, domain="not.valid")
+        IBAuth("cid", "kid", "cred", private_key_file, domain="not.valid")
+
+
+def test_invalid_domain_setter(flow: IBAuth) -> None:
+    with pytest.raises(ValueError):
+        flow.domain = "not.valid"
+
+
+def test_missing_client_id(private_key_file: Path) -> None:
+    with pytest.raises(ValueError):
+        IBAuth("", "kid", "cred", private_key_file, domain="api.ibkr.com")
+
+
+def test_missing_key_id(private_key_file: Path) -> None:
+    with pytest.raises(ValueError):
+        IBAuth("cid", "", "cred", private_key_file, domain="api.ibkr.com")
+
+
+def test_missing_credential(private_key_file: Path) -> None:
+    with pytest.raises(ValueError):
+        IBAuth("cid", "kid", "", private_key_file, domain="api.ibkr.com")
+
+
+def test_missing_private_key_file(private_key_file: Path) -> None:
+    with pytest.raises(ValueError):
+        IBAuth("cid", "kid", "cred", "", domain="api.ibkr.com")
 
 
 @patch("ibauth.auth.get")
-def test_check_ip_sets_ip(mock_get: Mock, flow: IBKROAuthFlow) -> None:
+def test_check_ip_sets_ip(mock_get: Mock, flow: IBAuth) -> None:
     mock_get.return_value.content = b"1.2.3.4"
     ip = flow._check_ip()
     assert ip == "1.2.3.4"
@@ -55,15 +82,15 @@ def test_check_ip_sets_ip(mock_get: Mock, flow: IBKROAuthFlow) -> None:
 
 
 @patch("ibauth.auth.post")
-def test_get_access_token(mock_post: Mock, flow: IBKROAuthFlow) -> None:
+def test_get_access_token(mock_post: Mock, flow: IBAuth) -> None:
     mock_post.return_value.json.return_value = {"access_token": "abc123"}
     flow.get_access_token()
     assert flow.access_token == "abc123"
 
 
 @patch("ibauth.auth.post")
-@patch.object(IBKROAuthFlow, "_check_ip")
-def test_get_bearer_token(mock_check_ip: Mock, mock_post: Mock, flow: IBKROAuthFlow) -> None:
+@patch.object(IBAuth, "_check_ip")
+def test_get_bearer_token(mock_check_ip: Mock, mock_post: Mock, flow: IBAuth) -> None:
     flow.access_token = "abc123"
     mock_check_ip.return_value = "1.2.3.4"
     mock_post.return_value.json.return_value = {"access_token": "bearer123"}
@@ -72,15 +99,45 @@ def test_get_bearer_token(mock_check_ip: Mock, mock_post: Mock, flow: IBKROAuthF
     assert flow.bearer_token == "bearer123"
 
 
+@pytest.mark.usefixtures("flow")  # type: ignore[misc]
+def test_check_ip_change(flow: IBAuth, caplog: Any) -> None:
+    # Get initial IP.
+    with patch("ibauth.auth.get") as mock_get:
+        mock_get.return_value.content = b"1.2.3.4"
+        ip1 = flow._check_ip()
+        assert ip1 == "1.2.3.4"
+
+    # Get new IP.
+    with patch("ibauth.auth.get") as mock_get:
+        mock_get.return_value.content = b"5.6.7.8"
+
+        caplog.set_level("WARNING")
+        ip2 = flow._check_ip()
+
+        assert ip2 == "5.6.7.8"
+        # Verify warning was logged
+        warnings = [rec.getMessage() for rec in caplog.records if rec.levelname == "WARNING"]
+        assert any("Public IP has changed" in msg for msg in warnings)
+
+
 @patch("ibauth.auth.post")
-def test_ssodh_init_success(mock_post: Mock, flow: IBKROAuthFlow) -> None:
+def test_ssodh_init_success(mock_post: Mock, flow: IBAuth) -> None:
     flow.bearer_token = "bearer123"
     mock_post.return_value.json.return_value = {"status": "ok"}
-    flow.ssodh_init()  # should not raise
+    flow.ssodh_init()
+
+
+@patch("ibauth.auth.post")
+def test_ssodh_init_failure(mock_post: Mock, flow: IBAuth, monkeypatch: Any) -> None:
+    flow.bearer_token = "not.valid"
+    mock_post.return_value.raise_for_status.side_effect = HTTPError("bad request")
+
+    with pytest.raises(HTTPError):
+        flow.ssodh_init()
 
 
 @patch("ibauth.auth.get")
-def test_validate_sso(mock_get: Mock, flow: IBKROAuthFlow) -> None:
+def test_validate_sso(mock_get: Mock, flow: IBAuth) -> None:
     flow.bearer_token = "bearer123"
     mock_get.return_value.json.return_value = {"result": "valid"}
     flow.validate_sso()
@@ -88,7 +145,7 @@ def test_validate_sso(mock_get: Mock, flow: IBKROAuthFlow) -> None:
 
 
 @patch("ibauth.auth.get")
-def test_tickle_success(mock_get: Mock, flow: IBKROAuthFlow) -> None:
+def test_tickle_success(mock_get: Mock, flow: IBAuth) -> None:
     flow.bearer_token = "bearer123"
     mock_get.return_value.json.return_value = {
         "session": "sess1",
@@ -107,16 +164,36 @@ def test_tickle_success(mock_get: Mock, flow: IBKROAuthFlow) -> None:
     assert not flow.competing
 
 
+@patch("ibauth.auth.get")
+def test_tickle_failure(mock_get: Mock, flow: IBAuth, monkeypatch: Any) -> None:
+    flow.access_token = "not.valid"
+    flow.bearer_token = "not.valid"
+
+    mock_response = Mock()
+    mock_response.raise_for_status.side_effect = HTTPError("bad request")
+    mock_response.json.return_value = {"error": "bad request"}
+    mock_get.return_value = mock_response
+
+    monkeypatch.setattr(flow, "get_bearer_token", lambda: None)
+    monkeypatch.setattr(flow, "ssodh_init", lambda: None)
+
+    with pytest.raises(HTTPError):
+        flow.tickle()
+    # assert sid == "sess1"
+    # assert flow.authenticated
+    # assert flow.connected
+    # assert not flow.competing
+
+
 @patch("ibauth.auth.post")
-def test_logout_with_token(mock_post: Mock, flow: IBKROAuthFlow) -> None:
+def test_logout_with_token(mock_post: Mock, flow: IBAuth) -> None:
     flow.bearer_token = "bearer123"
     flow.logout()
     mock_post.assert_called_once()
 
 
-def test_logout_without_token(flow: IBKROAuthFlow) -> None:
+def test_logout_without_token(flow: IBAuth) -> None:
     flow.bearer_token = None
-    # should not raise
     flow.logout()
 
 
@@ -131,5 +208,5 @@ def test_auth_from_yaml(tmp_path: Path, private_key_file: str) -> None:
     file = tmp_path / "conf.yaml"
     file.write_text(yaml.dump(config))
     flow = auth_from_yaml(file)
-    assert isinstance(flow, IBKROAuthFlow)
+    assert isinstance(flow, IBAuth)
     assert flow.client_id == "cid"

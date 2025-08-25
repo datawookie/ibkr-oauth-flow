@@ -1,5 +1,42 @@
 # IBKR Authentication Workflow
 
+```python
+import logging
+import time
+
+import ibauth
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)7s] %(message)s",
+)
+
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("charset_normalizer").setLevel(logging.WARNING)
+
+if __name__ == "__main__":
+    auth = ibauth.auth_from_yaml("config.yaml")
+
+    auth.get_access_token()
+    auth.get_bearer_token()
+
+    auth.ssodh_init()
+    auth.validate_sso()
+
+    # This will keep session alive.
+    for _ in range(3):
+        auth.tickle()
+        time.sleep(10)
+
+    # Dynamically change the API domain.
+    #
+    auth.domain = "5.api.ibkr.com"
+
+    auth.tickle()
+
+    auth.logout()
+```
+
 Documentation for the IBKR Web API is [here](https://www.interactivebrokers.com/campus/ibkr-api-page/webapi-ref/).
 
 1. Pull the repository.

@@ -9,10 +9,11 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from .const import GRANT_TYPE, CLIENT_ASSERTION_TYPE, SCOPE, VALID_DOMAINS
 from .logger import logger
+from .timing import timing
 from .util import make_jws, get, post, ReadTimeout, HTTPError
 
 
-class IBKROAuthFlow:
+class IBAuth:
     def __init__(
         self,
         client_id: str,
@@ -182,6 +183,7 @@ class IBKROAuthFlow:
         logger.info("Initiate a brokerage session.")
         try:
             response = post(url=url, headers=headers, json={"publish": True, "compete": True})
+            response.raise_for_status()
         except HTTPError:
             logger.error("⛔ Error initiating a brokerage session.")
             raise
@@ -216,11 +218,15 @@ class IBKROAuthFlow:
             "User-Agent": "python/3.11",
         }
 
-        logger.info("🔔 Send tickle.")
         try:
-            response = get(url=url, headers=headers, timeout=10)
+            # Ping the API and record RTT (round trip time).
+            logger.info("🔔 Send tickle.")
+            with timing() as duration:
+                response = get(url=url, headers=headers, timeout=10)
+                response.raise_for_status()
+            logger.info(f"⏳ Tickle RTT: {duration.duration:.3f} s [status={response.status_code}]")
         except (HTTPError, ReadTimeout):
-            logger.error("⛔ Error connecting to session.")
+            logger.exception("⛔ Error connecting to session.")
             self.get_bearer_token()
             self.ssodh_init()
             raise
